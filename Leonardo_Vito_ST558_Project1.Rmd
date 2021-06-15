@@ -19,6 +19,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(httr)
 library(jsonlite)
+library(gtools)
 ```
 
 
@@ -117,7 +118,7 @@ AssistingFun <- function(Type,ID){
     data <- content(req) # from httr library
     temp <- data.frame(matrix(data$data[[1]],nrow = 1))
     colnames(temp) <- names(df)
-    df <- rbind(df,temp)
+    df <- smartbind(df,temp)
     }
   }
 
@@ -181,7 +182,7 @@ SkaterRecords <- function(ID =NULL, Name = NULL){
       for(j in 1:length(data$data)){
       temp <- data.frame(matrix(data$data[[j]],nrow = 1))
       colnames(temp) <- colnames(df)
-      df <- rbind(df,temp)
+      df <- smartbind(df,temp)
       }
     }
   }
@@ -194,12 +195,68 @@ SkaterRecords <- function(ID =NULL, Name = NULL){
 
 
 ```{r}
-ID<-2
-FranchiseAdminHistory <- paste0("franchise-detail?cayenneExp=mostRecentTeamId=ID")
-req <- GET(paste0(Base_URL,FranchiseAdminHistory)) # from httr library
-data <- content(req) # from httr library
 
-
+AdminRecords <- function(ID =NULL, Name = NULL){
+  
+  NamesDf <- FranchiseInfo(ID,Name) 
+  ID <- unlist(NamesDf$id )
+  ID <- ID[!ID == 39]
+  df<-NULL
+  
+  Records <- paste0("/franchise-detail?cayenneExp=mostRecentTeamId=",ID[1])
+  req <- GET(paste0(Base_URL,Records)) # from httr library
+  data <- content(req) # from httr library
+  if(!is.null(unlist(data$data))){
+    df <- data.frame(matrix(data$data[[1]],nrow = 1))
+    colnames(df) <- names(data$data[[1]])
+  }
+  
+  if(length(ID)!=1){
+    for(i in 2:length(ID)){
+    Records <- paste0("/franchise-detail?cayenneExp=mostRecentTeamId=",ID[i])
+    req <- GET(paste0(Base_URL,Records)) # from httr library
+    data <- content(req) # from httr library
+      if(!is.null(unlist(data$data))){
+        temp <- data.frame(matrix(data$data[[1]],nrow = 1))
+        colnames(temp) <- names(df)
+        df <- smartbind(df,temp) 
+      }
+    }
+  }
+  if(is.null(df)){
+    stop("There is no data for the ID specified")
+  }
+  return(df)
+}
 
 ```
 
+```{r}
+
+StatsExpandMod <- function(ID=NULL,Name=NULL){
+  Base_URL_Stats <- "https://statsapi.web.nhl.com/api/v1/teams/"
+  Modifier <- "?expand=team.stats"
+  
+  NamesDf <- FranchiseInfo(ID,Name) 
+  ID <- unlist(NamesDf$id )
+  ID <- ID[!ID == 39]
+  df<-NULL
+  
+  
+  req <- GET(paste0(Base_URL_Stats,ID[1],Modifier)) # from httr library
+  data <- content(req) # from httr library
+  df <- data.frame(data$teams[[1]])
+  if(length(ID != 1)){
+    for(i in 2:length(ID)){
+      req <- GET(paste0(Base_URL_Stats,ID[i],Modifier)) # from httr library
+      data <- content(req) # from httr library
+      temp <- data.frame(data$teams[[1]])
+      df <- smartbind(df,temp)
+    }    
+  }
+
+  return(df)
+}
+
+
+```
