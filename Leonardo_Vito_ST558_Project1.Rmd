@@ -24,13 +24,15 @@ library(jsonlite)
 You should write functions to contact the NHL records API for the endpoints listed below. The
 functions should return well-formatted, parsed data (usually a data frame). Where possible, the user should have the option to specify the franchise of choice by both name and ID number - you’ll need to map the names to ID numbers yourself
 
-```{r cars}
+```{r BaseURL}
 Base_URL <- "https://records.nhl.com/site/api"
+```
 
+```{r Franchise}
 FranchiseInfo <- function(ID=NULL, Name=NULL){
   franchise <- "/franchise"
   req <- GET(paste0(Base_URL,franchise)) # from httr library
-  data <- (content(req)) # from httr library
+  data <- content(req) # from httr library
 
   df <- data.frame(matrix(rep(0,8), nrow=1))
   colnames(df) <- names(data$data[[2]])
@@ -69,13 +71,115 @@ FranchiseInfo <- function(ID=NULL, Name=NULL){
     
     return(df)
 }
+```
+
+```{r teamTotals}
+
+TeamTotals <- function(ID=NULL, Name=NULL){
+  franchise <- "/franchise"
+  req <- GET(paste0(Base_URL,franchise)) # from httr library
+  data <- content(req) # from httr library
+
+  df <- data.frame(matrix(rep(0,length(data$data[[2]])), nrow=1))
+  colnames(df) <- names(data$data[[2]])
+  for( i in 1:length(data$data)){
+    datalist <- data$data[[i]]
+    temp <- data.frame(matrix(datalist, nrow=1))
+    df[i,] <- temp
+  }
   
+  NamesDf <- df %>% 
+    select(id, fullName, teamCommonName, teamPlaceName, teamAbbrev) %>%
+    rename(franchiseId = id)
   
+  teamTotals <- "/franchise-team-totals"
+  req <- GET(paste0(Base_URL,teamTotals)) # from httr library
+  data <- (content(req)) # from httr library
+
+  df <- data.frame(matrix(rep(0,length(data$data[[1]])), nrow=1))
+  colnames(df) <- names(data$data[[2]])
+  for( i in 1:length(data$data)){
+    datalist <- data$data[[i]]
+    temp <- data.frame(matrix(datalist, nrow=1))
+    df[i,] <- temp
+  }
+  
+  df <- df %>% left_join(NamesDf,"franchiseId")
+  
+  if(!is.null(ID) & !is.null(Name)){
+    results <- filter(df, franchiseId %in% ID | teamCommonName %in% Name )
+    if(dim(results)[1]!=0){
+      return(results)
+    }
+  }
+
+  if(!is.null(ID)){
+    results <- filter(df, id %in% ID)
+    if(dim(results)[1]!=0){
+      return(results)
+    } else if(is.null(Name)){
+      stop("ID is not in this dataset. Choose an ID between 1 and 39")
+    } else if(!is.null(Name)){
+        results <- filter(df, teamCommonName %in% Name )
+        if(dim(results)[1]!=0){
+        return(results)
+       } else stop("Neither ID nor Name are in the dataset. Try again")
+    }
+  }
+    if(!is.null(Name)){
+      results <- filter(df, teamCommonName %in% Name )
+      if(dim(results)[1]!=0){
+        return(results)
+      } else stop("This name does not exist. Check spelling, captilize only the first letter, and use quotation marks")
+    }
+    
+    return(df)
+}
+
+  
+```
  
+```{r Season}
 
-teamTotals <- "/franchise-team-totals"
+SeasonRecords <- function(ID =NULL, Name = NULL){
+  franchise <- "/franchise"
+  req <- GET(paste0(Base_URL,franchise)) # from httr library
+  data <- content(req) # from httr library
 
+  df <- data.frame(matrix(rep(0,length(data$data[[2]])), nrow=1))
+  colnames(df) <- names(data$data[[2]])
+  for( i in 1:length(data$data)){
+    datalist <- data$data[[i]]
+    temp <- data.frame(matrix(datalist, nrow=1))
+    df[i,] <- temp
+  }
 
+  NamesDf <- df %>% 
+    select(id, teamCommonName) %>%
+    filter(teamCommonName %in% Name)
+  ID <- unique(union(ID,unlist(NamesDf$id )))
+  
+  
+  if(is.null(ID)){
+    ID <- c(1:39)
+  }
+  FranchiseSeasonRecords <- paste0("/franchise-season-records?cayenneExp=franchiseId=",ID[1])
+  req <- GET(paste0(Base_URL,FranchiseSeasonRecords)) # from httr library
+  data <- content(req) # from httr library
+  df <- data.frame(data$data)
+  for(i in 1:length(ID)){
+    FranchiseSeasonRecords <- paste0("/franchise-season-records?cayenneExp=franchiseId=",ID[i])
+    req <- GET(paste0(Base_URL,FranchiseSeasonRecords)) # from httr library
+    data <- content(req) # from httr library
+    temp <- data.frame(matrix(data$data[[1]],nrow = 1))
+    colnames(temp) <- names(df)
+    df <- rbind(df,temp)
+  }
+  return(df)
+  } 
+```
+
+```{r}
 FranchiseSeasonRecords <- paste0("/franchise-season-records?cayenneExp=franchiseId=",ID)
 FranchiseGoalieRecords <- paste0("/franchise-goalie-records?cayenneExp=franchiseId=",ID)
 FranchiseSkatorRecords <- paste0("/franchise-skater-records?cayenneExp=franchiseId=",ID)
