@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Packages Needed:
 ```{r}
+library(tidyverse)
 library(httr)
 library(jsonlite)
 ```
@@ -26,6 +27,13 @@ functions should return well-formatted, parsed data (usually a data frame). Wher
 
 ```{r BaseURL}
 Base_URL <- "https://records.nhl.com/site/api"
+```
+
+```{r returnFunction}
+
+returnFunction <- function(ID=NULL, Name=NULL){
+  
+}
 ```
 
 ```{r Franchise}
@@ -41,54 +49,26 @@ FranchiseInfo <- function(ID=NULL, Name=NULL){
     temp <- data.frame(matrix(datalist, nrow=1))
     df[i,] <- temp
   }
-  
-  if(!is.null(ID) & !is.null(Name)){
-    results <- filter(df, id %in% ID | teamCommonName %in% Name )
-    if(dim(results)[1]!=0){
-      return(results)
-    }
-  }
 
-  if(!is.null(ID)){
-    results <- filter(df, id %in% ID)
-    if(dim(results)[1]!=0){
-      return(results)
-    } else if(is.null(Name)){
-      stop("ID is not in this dataset. Choose an ID between 1 and 39")
-    } else if(!is.null(Name)){
-        results <- filter(df, teamCommonName %in% Name )
-        if(dim(results)[1]!=0){
-        return(results)
-       } else stop("Neither ID nor Name are in the dataset. Try again")
-    }
-  }
-    if(!is.null(Name)){
-      results <- filter(df, teamCommonName %in% Name )
-      if(dim(results)[1]!=0){
-        return(results)
-      } else stop("This name does not exist. Check spelling, captilize only the first letter, and use quotation marks")
-    }
-    
+  if(is.null(ID) & is.null(Name)){
     return(df)
+  } else{
+      NamesDf <- df %>% 
+       select(id, teamCommonName) %>%
+       filter(teamCommonName %in% Name)
+      ID <- unique(union(ID,unlist(NamesDf$id )))
+  
+    return(df %>% filter(id %in% ID))
+  }
 }
-```
+```  
+
 
 ```{r teamTotals}
 
 TeamTotals <- function(ID=NULL, Name=NULL){
-  franchise <- "/franchise"
-  req <- GET(paste0(Base_URL,franchise)) # from httr library
-  data <- content(req) # from httr library
 
-  df <- data.frame(matrix(rep(0,length(data$data[[2]])), nrow=1))
-  colnames(df) <- names(data$data[[2]])
-  for( i in 1:length(data$data)){
-    datalist <- data$data[[i]]
-    temp <- data.frame(matrix(datalist, nrow=1))
-    df[i,] <- temp
-  }
-  
-  NamesDf <- df %>% 
+  NamesDf <- FranchiseInfo(ID,Name) %>% 
     select(id, fullName, teamCommonName, teamPlaceName, teamAbbrev) %>%
     rename(franchiseId = id)
   
@@ -106,142 +86,120 @@ TeamTotals <- function(ID=NULL, Name=NULL){
   
   df <- df %>% left_join(NamesDf,"franchiseId")
   
-  if(!is.null(ID) & !is.null(Name)){
-    results <- filter(df, franchiseId %in% ID | teamCommonName %in% Name )
-    if(dim(results)[1]!=0){
-      return(results)
-    }
-  }
-
-  if(!is.null(ID)){
-    results <- filter(df, id %in% ID)
-    if(dim(results)[1]!=0){
-      return(results)
-    } else if(is.null(Name)){
-      stop("ID is not in this dataset. Choose an ID between 1 and 39")
-    } else if(!is.null(Name)){
-        results <- filter(df, teamCommonName %in% Name )
-        if(dim(results)[1]!=0){
-        return(results)
-       } else stop("Neither ID nor Name are in the dataset. Try again")
-    }
-  }
-    if(!is.null(Name)){
-      results <- filter(df, teamCommonName %in% Name )
-      if(dim(results)[1]!=0){
-        return(results)
-      } else stop("This name does not exist. Check spelling, captilize only the first letter, and use quotation marks")
-    }
-    
+  if(is.null(ID) & is.null(Name)){
     return(df)
+  } else{
+      NamesDf <- df %>% 
+       select(id, teamCommonName) %>%
+       filter(teamCommonName %in% Name)
+      ID <- unique(union(ID,unlist(NamesDf$id )))
+  
+    return(df %>% filter(id %in% ID))
+  }
 }
 
   
 ```
  
-```{r Season}
+```{r}
+AssistingFun <- function(Type,ID){
 
-SeasonRecords <- function(ID =NULL, Name = NULL){
-  franchise <- "/franchise"
-  req <- GET(paste0(Base_URL,franchise)) # from httr library
+  Records <- paste0("/franchise-",Type,"-records?cayenneExp=franchiseId=",ID[1])
+  req <- GET(paste0(Base_URL,Records)) # from httr library
   data <- content(req) # from httr library
-
-  df <- data.frame(matrix(rep(0,length(data$data[[2]])), nrow=1))
-  colnames(df) <- names(data$data[[2]])
-  for( i in 1:length(data$data)){
-    datalist <- data$data[[i]]
-    temp <- data.frame(matrix(datalist, nrow=1))
-    df[i,] <- temp
-  }
-
-  NamesDf <- df %>% 
-    select(id, teamCommonName) %>%
-    filter(teamCommonName %in% Name)
-  ID <- unique(union(ID,unlist(NamesDf$id )))
+  df <- data.frame(matrix(data$data[[1]],nrow = 1))
+  colnames(df) <- names(data$data[[1]])
   
-  
-  if(is.null(ID)){
-    ID <- c(1:39)
-  }
-  FranchiseSeasonRecords <- paste0("/franchise-season-records?cayenneExp=franchiseId=",ID[1])
-  req <- GET(paste0(Base_URL,FranchiseSeasonRecords)) # from httr library
-  data <- content(req) # from httr library
-  df <- data.frame(data$data)
-  for(i in 1:length(ID)){
-    FranchiseSeasonRecords <- paste0("/franchise-season-records?cayenneExp=franchiseId=",ID[i])
-    req <- GET(paste0(Base_URL,FranchiseSeasonRecords)) # from httr library
+  if(length(ID)!=1){
+    for(i in 2:length(ID)){
+    Records <- paste0("/franchise-",Type,"-records?cayenneExp=franchiseId=",ID[i])
+    req <- GET(paste0(Base_URL,Records)) # from httr library
     data <- content(req) # from httr library
     temp <- data.frame(matrix(data$data[[1]],nrow = 1))
     colnames(temp) <- names(df)
     df <- rbind(df,temp)
+    }
   }
+
   return(df)
-  } 
+}  
+
+``` 
+ 
+```{r Season}
+
+SeasonRecords <- function(ID =NULL, Name = NULL){
+
+  ID <- 4
+  NamesDf <- FranchiseInfo(ID,Name) 
+  ID <- unlist(NamesDf$id )
+  Type = "season"
+
+  AssistingFun(Type,ID)
+}
 ```
+
+
 
 ```{r}
 
 GoalieRecords <- function(ID =NULL, Name = NULL){
-  franchise <- "/franchise"
-  req <- GET(paste0(Base_URL,franchise)) # from httr library
-  data <- content(req) # from httr library
-
-  df <- data.frame(matrix(rep(0,length(data$data[[2]])), nrow=1))
-  colnames(df) <- names(data$data[[2]])
-  for( i in 1:length(data$data)){
-    datalist <- data$data[[i]]
-    temp <- data.frame(matrix(datalist, nrow=1))
-    df[i,] <- temp
-  }
-
-  NamesDf <- df %>% 
-    select(id, teamCommonName) %>%
-    filter(teamCommonName %in% Name)
-  ID <- unique(union(ID,unlist(NamesDf$id )))
   
+  NamesDf <- FranchiseInfo(ID,Name) 
+  ID <- unlist(NamesDf$id )
+  ID <- ID[!ID == 39]
+  Type <- "goalie"
   
-  if(is.null(ID)){
-    ID <- c(1:39)
-  }
-
-  FranchiseGoalieRecords <- paste0("/franchise-goalie-records?cayenneExp=franchiseId=",ID[1])
-  req <- GET(paste0(Base_URL,FranchiseGoalieRecords)) # from httr library
-  data <- content(req) # from httr library
-  df <- data.frame(matrix(data$data[[1]],nrow = 1))
-  colnames(df) <- names(data$data[[1]])
-  for(i in 2:length(ID)){
-    FranchiseGoalieRecords <- paste0("/franchise-goalie-records?cayenneExp=franchiseId=",ID[2])
-    req <- GET(paste0(Base_URL,FranchiseGoalieRecords)) # from httr library
-    data <- content(req) # from httr library
-    temp <- data.frame(matrix(data$data[[1]],nrow = 1))
-    colnames(temp) <- names(df)
-    df <- rbind(df,temp)
-  }
-  return(df)
+  AssistingFun(Type,ID)
 }
 ```
 
 ```{r}
-ID <-5
-FranchiseSkatorRecords <- paste0("/franchise-skater-records?cayenneExp=franchiseId=",ID)
-req <- GET(paste0(Base_URL,FranchiseSeasonRecords)) # from httr library
-data <- content(req) # from httr library
 
+SkaterRecords <- function(ID =NULL, Name = NULL){
+
+  NamesDf <- FranchiseInfo(ID,Name) 
+  ID <- unlist(NamesDf$id )
+  ID <- ID[!ID == 39]
+  Type = "skater"
+
+  Records <- paste0("/franchise-",Type,"-records?cayenneExp=franchiseId=",ID[1])
+  req <- GET(paste0(Base_URL,Records)) # from httr library
+  data <- content(req) # from httr library
+  df <- data.frame(matrix(data$data[[1]],nrow = 1))
+  colnames(df) <- names(data$data[[1]])
+  for(j in 2:length(data$data)){
+    temp <- data.frame(matrix(data$data[[j]],nrow = 1))
+    colnames(temp) <- colnames(df)
+    df <- rbind(df,temp)
+  }
+  if(length(ID)!= 1){
+    for(i in 2:length(ID)){
+    Records <- paste0("/franchise-",Type,"-records?cayenneExp=franchiseId=",ID[i])
+    req <- GET(paste0(Base_URL,Records)) # from httr library
+    data <- content(req) # from httr library
+      for(j in 1:length(data$data)){
+      temp <- data.frame(matrix(data$data[[j]],nrow = 1))
+      colnames(temp) <- colnames(df)
+      df <- rbind(df,temp)
+      }
+    }
+  }
+
+  return(df)
+
+}
 ```
+
+
 
 ```{r}
-FranchiseAdminHistory <- paste0("franchise-detail?cayenneExp=mostRecentTeamId=",ID)
+ID<-2
+FranchiseAdminHistory <- paste0("franchise-detail?cayenneExp=mostRecentTeamId=ID")
+req <- GET(paste0(Base_URL,FranchiseAdminHistory)) # from httr library
+data <- content(req) # from httr library
 
 
 
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
