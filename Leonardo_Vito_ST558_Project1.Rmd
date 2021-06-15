@@ -180,9 +180,56 @@ SeasonRecords <- function(ID =NULL, Name = NULL){
 ```
 
 ```{r}
-FranchiseSeasonRecords <- paste0("/franchise-season-records?cayenneExp=franchiseId=",ID)
-FranchiseGoalieRecords <- paste0("/franchise-goalie-records?cayenneExp=franchiseId=",ID)
+
+GoalieRecords <- function(ID =NULL, Name = NULL){
+  franchise <- "/franchise"
+  req <- GET(paste0(Base_URL,franchise)) # from httr library
+  data <- content(req) # from httr library
+
+  df <- data.frame(matrix(rep(0,length(data$data[[2]])), nrow=1))
+  colnames(df) <- names(data$data[[2]])
+  for( i in 1:length(data$data)){
+    datalist <- data$data[[i]]
+    temp <- data.frame(matrix(datalist, nrow=1))
+    df[i,] <- temp
+  }
+
+  NamesDf <- df %>% 
+    select(id, teamCommonName) %>%
+    filter(teamCommonName %in% Name)
+  ID <- unique(union(ID,unlist(NamesDf$id )))
+  
+  
+  if(is.null(ID)){
+    ID <- c(1:39)
+  }
+
+  FranchiseGoalieRecords <- paste0("/franchise-goalie-records?cayenneExp=franchiseId=",ID[1])
+  req <- GET(paste0(Base_URL,FranchiseGoalieRecords)) # from httr library
+  data <- content(req) # from httr library
+  df <- data.frame(matrix(data$data[[1]],nrow = 1))
+  colnames(df) <- names(data$data[[1]])
+  for(i in 2:length(ID)){
+    FranchiseGoalieRecords <- paste0("/franchise-goalie-records?cayenneExp=franchiseId=",ID[2])
+    req <- GET(paste0(Base_URL,FranchiseGoalieRecords)) # from httr library
+    data <- content(req) # from httr library
+    temp <- data.frame(matrix(data$data[[1]],nrow = 1))
+    colnames(temp) <- names(df)
+    df <- rbind(df,temp)
+  }
+  return(df)
+}
+```
+
+```{r}
+ID <-5
 FranchiseSkatorRecords <- paste0("/franchise-skater-records?cayenneExp=franchiseId=",ID)
+req <- GET(paste0(Base_URL,FranchiseSeasonRecords)) # from httr library
+data <- content(req) # from httr library
+
+```
+
+```{r}
 FranchiseAdminHistory <- paste0("franchise-detail?cayenneExp=mostRecentTeamId=",ID)
 
 
