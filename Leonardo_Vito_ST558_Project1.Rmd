@@ -118,7 +118,7 @@ AssistingFun <- function(Type,ID){
     data <- content(req) # from httr library
     temp <- data.frame(matrix(data$data[[1]],nrow = 1))
     colnames(temp) <- names(df)
-    df <- smartbind(df,temp)
+    df <- rbind(df,temp)
     }
   }
 
@@ -131,7 +131,6 @@ AssistingFun <- function(Type,ID){
 
 SeasonRecords <- function(ID =NULL, Name = NULL){
 
-  ID <- 4
   NamesDf <- FranchiseInfo(ID,Name) 
   ID <- unlist(NamesDf$id )
   Type = "season"
@@ -182,7 +181,7 @@ SkaterRecords <- function(ID =NULL, Name = NULL){
       for(j in 1:length(data$data)){
       temp <- data.frame(matrix(data$data[[j]],nrow = 1))
       colnames(temp) <- colnames(df)
-      df <- smartbind(df,temp)
+      df <- rbind(df,temp)
       }
     }
   }
@@ -219,7 +218,7 @@ AdminRecords <- function(ID =NULL, Name = NULL){
       if(!is.null(unlist(data$data))){
         temp <- data.frame(matrix(data$data[[1]],nrow = 1))
         colnames(temp) <- names(df)
-        df <- smartbind(df,temp) 
+        df <- rbind(df,temp) 
       }
     }
   }
@@ -258,5 +257,24 @@ StatsExpandMod <- function(ID=NULL,Name=NULL){
   return(df)
 }
 
-
 ```
+
+
+```{r Wrapper}
+Wrapper <- function(fun,ID=NULL,Name=NULL){
+  switch(fun,
+             Info = FranchiseInfo(ID,Name),
+             Totals = TeamTotals(ID,Name),
+             Goalie = GoalieRecords(ID,Name), 
+             Season = SeasonRecords(ID,Name), 
+             Skater = SkaterRecords(ID,Name), 
+             Admin= AdminRecords(ID,Name), 
+             TeamStat = StatsExpandMod(ID,Name),
+             stop("fun must be one of the following: Info, Totals, Goalie, Season, Skater, Admin or TeamStat. fun must also be in quotation marks"))
+  
+}
+```
+
+
+
+
