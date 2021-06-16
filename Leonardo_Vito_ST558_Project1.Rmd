@@ -23,19 +23,11 @@ library(gtools)
 ```
 
 
-You should write functions to contact the NHL records API for the endpoints listed below. The
-functions should return well-formatted, parsed data (usually a data frame). Where possible, the user should have the option to specify the franchise of choice by both name and ID number - you’ll need to map the names to ID numbers yourself
-
+# Functions to query the data
 ```{r BaseURL}
 Base_URL <- "https://records.nhl.com/site/api"
 ```
 
-```{r returnFunction}
-
-returnFunction <- function(ID=NULL, Name=NULL){
-  
-}
-```
 
 ```{r Franchise}
 FranchiseInfo <- function(ID=NULL, Name=NULL){
@@ -242,24 +234,23 @@ StatsExpandMod <- function(ID=NULL,Name=NULL){
   df<-NULL
   
   
-  req <- GET(paste0(Base_URL_Stats,ID[1],Modifier)) # from httr library
+  req <- GET(paste0(Base_URL_Stats,1,Modifier)) # from httr library
   data <- content(req) # from httr library
   df <- data.frame(data$teams[[1]])
-  if(length(ID != 1)){
-    for(i in 2:length(ID)){
-      req <- GET(paste0(Base_URL_Stats,ID[i],Modifier)) # from httr library
-      data <- content(req) # from httr library
-      temp <- data.frame(data$teams[[1]])
-      df <- smartbind(df,temp)
+  for(i in 2:38){
+    req <- GET(paste0(Base_URL_Stats,i,Modifier)) # from httr library
+    data <- content(req) # from httr library
+    temp <- data.frame(data$teams[[1]])
+    df <- smartbind(df,temp)
     }    
-  }
-
-  return(df)
+  if(!is.null(ID)){
+    return(df %>% filter(franchise.franchiseId %in% ID))
+  } else return(df)
 }
 
 ```
 
-
+## Wrapper Function
 ```{r Wrapper}
 Wrapper <- function(fun,ID=NULL,Name=NULL){
   switch(fun,
@@ -275,6 +266,121 @@ Wrapper <- function(fun,ID=NULL,Name=NULL){
 }
 ```
 
+# Exploratory Data Analysis 
+```{r}
+NY.Info <-Wrapper("Info", Name = c("Islanders", "Rangers", "Sabres"))
+NY.Teams <- c("Islanders", "Rangers", "Sabres")
+NY.Season <- Wrapper("Season", Name = NY.Teams)
+NY.Skater <- Wrapper("Skater",  Name = NY.Teams)
+NY.TeamStat<- Wrapper("TeamStat",Name = NY.Teams)
 
+table(unlist(NY.Skater$franchiseName))
+table(unlist(NY.Skater$franchiseName),unlist(NY.Skater$activePlayer))
+table(unlist(NY.Skater$franchiseName),unlist(NY.Skater$seasons))
+
+
+NY.Skater %>% 
+  mutate(franchiseName = factor(unlist(franchiseName)),
+         activePlayer = factor(unlist(activePlayer))) %>%
+  group_by(franchiseName, activePlayer) %>%
+  summarise(avgGames = mean(as.numeric(gamesPlayed)), 
+            medGames = median(as.numeric(gamesPlayed)), 
+            varGames = var(as.numeric(gamesPlayed)) )
+
+NY.Skater %>% 
+  mutate(franchiseName = factor(unlist(franchiseName)),
+         activePlayer = factor(unlist(activePlayer))) %>%
+  group_by(franchiseName, activePlayer) %>%
+  summarise(avgGoals = mean(as.numeric(goals)), 
+            medGoals = median(as.numeric(goals)), 
+            varGoals = var(as.numeric(goals)) )
+
+NY.Skater %>% 
+  mutate(franchiseName = factor(unlist(franchiseName)),
+         activePlayer = factor(unlist(activePlayer))) %>%
+  group_by(franchiseName, activePlayer) %>%
+  summarise(avgAssists = mean(as.numeric(assists)), 
+            medAssists = median(as.numeric(assists)), 
+            varAssists = var(as.numeric(assists)) )
+
+NY.Skater %>% 
+  filter(seasons > 3) %>%
+  mutate(franchiseName = factor(unlist(franchiseName)),
+         activePlayer = factor(unlist(activePlayer))) %>%
+  group_by(franchiseName, activePlayer) %>%
+  summarise(avgGoals = mean(as.numeric(goals)), 
+            medGoals = median(as.numeric(goals)), 
+            varGoals = var(as.numeric(goals)) )
+
+NY.Skater %>% 
+  filter(seasons > 3) %>%
+  mutate(franchiseName = factor(unlist(franchiseName)),
+         activePlayer = factor(unlist(activePlayer))) %>%
+  group_by(franchiseName, activePlayer) %>%
+  summarise(avgAssists = mean(as.numeric(assists)), 
+            medAssists = median(as.numeric(assists)), 
+            varAssists = var(as.numeric(assists)) )
+
+NY.Skater.edit <- NY.Skater %>% 
+  filter(seasons > 3) %>%
+  mutate(NYteams = factor(unlist(franchiseName)),
+         activePlayer = factor(unlist(activePlayer)), 
+         assists = as.numeric(assists),
+         goals = as.numeric(goals), 
+         gamesPlayed = as.numeric(gamesPlayed),
+         GoalsPerGame = goals/gamesPlayed,
+         AssistsPerGame = assists/gamesPlayed) 
+
+ggplot(data = NY.Skater.edit, mapping = aes(x=NYteams, y=goals))+
+  geom_boxplot() +
+  geom_jitter(aes(color = NYteams))+
+  labs(x = "NY Teams")
+
+ggplot(data = NY.Skater.edit, mapping = aes(x=NYteams, y=assists))+
+  geom_boxplot() +
+  geom_jitter(aes(color = NYteams))+
+  labs(x = "NY Teams")
+# Historically the teams seem to be the same
+
+ggplot(data = NY.Skater.edit,
+       mapping = aes(x=goals, fill = NYteams))+
+  geom_histogram() +
+  facet_grid(col = vars(NYteams))
+
+ggplot(data = NY.Skater.edit, 
+       mapping = aes(x=GoalsPerGame, 
+                     y = AssistsPerGame, 
+                     group = NYteams, 
+                     color = NYteams)) +
+  geom_point() +
+  geom_smooth(method = lm, aes(color = NYteams)) 
+  
+
+BestScorers <- NY.Skater %>% 
+  mutate(NYteams = factor(unlist(franchiseName)),
+         activePlayer = factor(unlist(activePlayer))) %>%
+  group_by(NYteams, activePlayer) %>%
+  summarise(maxGoals = max(as.numeric(goals)) )
+
+
+ggplot(BestScorers, aes(x=NYteams,fill = activePlayer)) +
+  geom_bar(aes(y=maxGoals),position = "dodge", stat = "identity")
+# Islanders have the best scorer in NY history and currently have the best active scorer
+
+NY.TeamStat.edit <- NY.TeamStat %>% 
+  select(name, teamStats.splits.stat.goalsPerGame, teamStats.splits.stat.shotsPerGame) %>%
+  rename(GoalsPerGame = teamStats.splits.stat.goalsPerGame, 
+         ShotsPerGame = teamStats.splits.stat.shotsPerGame) %>%
+  mutate(ScorePerc = GoalsPerGame/ShotsPerGame) %>%
+  gather(key = Variable, value = value, 2:3)
+print(NY.TeamStat.edit)
+
+ggplot(NY.TeamStat.edit, mapping = aes(x=factor(name), fill = Variable))+
+    geom_bar(aes(y=value),position = "dodge", stat = "identity")
+
+ggplot(NY.TeamStat.edit, mapping = aes(x=factor(name)))+
+  geom_bar(aes(y=ScorePerc/2, fill = factor(name)), stat = "identity")
+
+```
 
 
