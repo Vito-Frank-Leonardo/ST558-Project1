@@ -3,9 +3,8 @@ title: "Project1"
 author: "Vito Frank Leonardo"
 date: "6/14/2021"
 output: 
-  html_document:
+  github_document:
     toc: yes
-    toc_float: yes
     toc_depth: 3
 ---
 ---
