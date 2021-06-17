@@ -72,10 +72,10 @@ For the `Season`, `Goalie`, and `Skater` endpoints, the URL's are structured sim
 ```{r}
 AccessData2 <- function(BaseURL, Type,ID){
 
-  Endpoint <- paste0("/franchise-",Type,"-records?cayenneExp=franchiseId=",ID)
-  req <- GET(paste0(BaseURL,Endpoint)) # from httr library
-  return( content(req) ) # from httr library
-
+  Endpoint <- paste0("/franchise-",Type,
+                     "-records?cayenneExp=franchiseId=",ID)
+  req <- GET(paste0(BaseURL,Endpoint)) 
+  return( content(req) )
 }  
 
 ``` 
@@ -112,7 +112,8 @@ Below is the function used to access the franchise endpoint which Returns id, fi
 ```{r Franchise}
 FranchiseInfo <- function(ID=NULL, Name=NULL){
   
-  data <- AccessData1(BaseURL = Base_URL, Endpoint = "/franchise")
+  data <- AccessData1(BaseURL = Base_URL, 
+                      Endpoint = "/franchise")
   
   df <- data.frame(matrix(rep(0,8), nrow=1))
   colnames(df) <- names(data$data[[2]])
@@ -140,7 +141,8 @@ Below is a function written to access an endpoint that returns Total stats for e
 
 TeamTotals <- function(ID=NULL, Name=NULL){
 
-  data <- AccessData1(BaseURL = Base_URL, Endpoint =  "/franchise-team-totals")
+  data <- AccessData1(BaseURL = Base_URL, 
+                      Endpoint =  "/franchise-team-totals")
 
   df <- data.frame(matrix(rep(0,length(data$data[[1]])), nrow=1))
   colnames(df) <- names(data$data[[2]])
@@ -356,12 +358,12 @@ StatsExpandMod <- function(ID=NULL,Name=NULL){
   df<-NULL
   
   Modifier <- "?expand=team.stats"
-  req <- GET(paste0(Base_URL_Stats,1,Modifier)) # from httr library
-  data <- content(req) # from httr library
+  req <- GET(paste0(Base_URL_Stats,1,Modifier)) 
+  data <- content(req) 
   df <- data.frame(data$teams[[1]])
   for(i in 2:38){
-    req <- GET(paste0(Base_URL_Stats,i,Modifier)) # from httr library
-    data <- content(req) # from httr library
+    req <- GET(paste0(Base_URL_Stats,i,Modifier)) 
+    data <- content(req) 
     temp <- data.frame(data$teams[[1]])
     df <- smartbind(df,temp)
     }    
@@ -386,7 +388,9 @@ Wrapper <- function(fun,ID=NULL,Name=NULL){
              Skater = SkaterRecords(ID,Name), 
              Admin= AdminRecords(ID,Name), 
              TeamStat = StatsExpandMod(ID,Name),
-             stop("fun must be one of the following: Info, Totals, Goalie, Season, Skater, Admin or TeamStat. fun must also be in quotation marks"))
+             stop("fun must be one of the following: 
+                  Info, Totals, Goalie, Season, Skater, Admin or TeamStat. 
+                  fun must also be in quotation marks"))
   
 }
 ```
@@ -408,10 +412,13 @@ To compare the teams, we will start with comparing the Winning Percentage of all
 
 NY.Totals.edit <- Wrapper("Totals", Name = NY.Teams) %>%
   mutate(WinPerc = as.numeric(wins)/as.numeric(gamesPlayed),
-         Season = factor(unlist(gameTypeId),labels = c("Regular","Playoffs")))
+         Season = factor(unlist(gameTypeId),
+                         labels = c("Regular","Playoffs")))
 
 ggplot(data = NY.Totals.edit, 
-       mapping = aes(x=factor(unlist(teamName)), y = WinPerc, fill = Season))+
+       mapping = aes(x=factor(unlist(teamName)), 
+                     y = WinPerc, 
+                     fill = Season))+
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Historical Winning Percentages in Regular Season vs Playoffs",
        x = "New York Teams", 
@@ -428,7 +435,9 @@ Now, we will compare the Scoring Percentage for each team. Using the TeamStat mo
   
 ```{r}
 NY.TeamStat.edit <-  Wrapper("TeamStat",Name = NY.Teams) %>% 
-  select(name, teamStats.splits.stat.goalsPerGame, teamStats.splits.stat.shotsPerGame) %>%
+  select(name, 
+         teamStats.splits.stat.goalsPerGame, 
+         teamStats.splits.stat.shotsPerGame) %>%
   rename(GoalsPerGame = teamStats.splits.stat.goalsPerGame, 
          ShotsPerGame = teamStats.splits.stat.shotsPerGame) %>%
   mutate(ScorePerc = GoalsPerGame/ShotsPerGame) %>%
@@ -436,7 +445,9 @@ NY.TeamStat.edit <-  Wrapper("TeamStat",Name = NY.Teams) %>%
 
 
 ggplot(NY.TeamStat.edit, mapping = aes(x=factor(name)))+
-  geom_bar(aes(y=ScorePerc/2, fill = factor(name)), stat = "identity")+
+  geom_bar(aes(y=ScorePerc/2, 
+               fill = factor(name)), 
+           stat = "identity")+
   labs(title = "Scoring Percentage of NY NHL Teams",
       x = "New York Teams", 
       y = "Scoring Percentage")
